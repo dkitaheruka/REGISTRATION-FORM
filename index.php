@@ -9,16 +9,16 @@ require_once 'functions.php';
 
 // Régénérer l'ID de session périodiquement pour éviter la fixation de session
 if (!isset($_SESSION['last_regeneration'])) {
-    session_regenerate_id(true);
-    $_SESSION['last_regeneration'] = time();
+  session_regenerate_id(true);
+  $_SESSION['last_regeneration'] = time();
 } elseif (time() - $_SESSION['last_regeneration'] > 600) {
-    session_regenerate_id(true);
-    $_SESSION['last_regeneration'] = time();
+  session_regenerate_id(true);
+  $_SESSION['last_regeneration'] = time();
 }
 
 // Initialiser les données de session si elles n'existent pas
 if (!isset($_SESSION['form_data'])) {
-    $_SESSION['form_data'] = [];
+  $_SESSION['form_data'] = [];
 }
 
 // Déterminer l'étape actuelle
@@ -28,31 +28,31 @@ if ($step > 4) $step = 4;
 
 // Traiter les données POST de l'étape précédente
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Vérification CSRF
-    if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
-        die("Erreur de sécurité : Jeton CSRF invalide.");
-    }
+  // Vérification CSRF
+  if (!isset($_POST['csrf_token']) || !verifyCsrfToken($_POST['csrf_token'])) {
+    die("Erreur de sécurité : Jeton CSRF invalide.");
+  }
 
-    $prev_step = isset($_POST['prev_step']) ? (int)$_POST['prev_step'] : 0;
-    
-    // Fusionner les données POST dans la session
-    foreach ($_POST as $key => $value) {
-        if ($key !== 'prev_step' && $key !== 'next_step' && $key !== 'csrf_token') {
-            $_SESSION['form_data'][$key] = $value;
-        }
-    }
+  $prev_step = isset($_POST['prev_step']) ? (int)$_POST['prev_step'] : 0;
 
-    // Redirection vers l'étape suivante ou submit.php
-    if (isset($_POST['next_step'])) {
-        $next = (int)$_POST['next_step'];
-        if ($next > 4) {
-            header("Location: submit.php");
-            exit;
-        } else {
-            header("Location: index.php?step=" . $next);
-            exit;
-        }
+  // Fusionner les données POST dans la session
+  foreach ($_POST as $key => $value) {
+    if ($key !== 'prev_step' && $key !== 'next_step' && $key !== 'csrf_token') {
+      $_SESSION['form_data'][$key] = $value;
     }
+  }
+
+  // Redirection vers l'étape suivante ou submit.php
+  if (isset($_POST['next_step'])) {
+    $next = (int)$_POST['next_step'];
+    if ($next > 4) {
+      header("Location: submit.php");
+      exit;
+    } else {
+      header("Location: index.php?step=" . $next);
+      exit;
+    }
+  }
 }
 
 // Récupérer les options pour les selects
@@ -64,44 +64,47 @@ $professions  = getOptions('professions', 'id_profession', 'nom_profession');
 $lieux        = getOptions('lieux_culte', 'id_lieu', 'nom_lieu');
 
 // Helper pour récupérer une valeur de session
-function val($key, $default = '') {
-    return isset($_SESSION['form_data'][$key]) ? htmlspecialchars($_SESSION['form_data'][$key]) : $default;
+function val($key, $default = '')
+{
+  return isset($_SESSION['form_data'][$key]) ? htmlspecialchars($_SESSION['form_data'][$key]) : $default;
 }
 
 // Helper pour tester si une option est sélectionnée
-function selected($key, $value) {
-    return (isset($_SESSION['form_data'][$key]) && $_SESSION['form_data'][$key] == $value) ? 'selected' : '';
+function selected($key, $value)
+{
+  return (isset($_SESSION['form_data'][$key]) && $_SESSION['form_data'][$key] == $value) ? 'selected' : '';
 }
 
 $niveauEtudeOptions = [
-    'Aucun',
-    'Primaire',
-    'Secondaire',
-    'Bac 1',
-    'Bac 2',
-    'Bac 3',
-    'Bac 4',
-    'Bac 5',
-    'Graduat',
-    'Licence (L1)',
-    'Licence (L2)',
-    'Licence (L3)',
-    'Master (M1)',
-    'Master (M2)',
-    'Doctorat (PhD)',
-    'Autre'
+  'Aucun',
+  'Primaire',
+  'Secondaire',
+  'Bac 1',
+  'Bac 2',
+  'Bac 3',
+  'Bac 4',
+  'Bac 5',
+  'Graduat',
+  'Licence (L1)',
+  'Licence (L2)',
+  'Licence (L3)',
+  'Master (M1)',
+  'Master (M2)',
+  'Doctorat (PhD)',
+  'Autre'
 ];
 
 if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_data']['niveau_etude'], $niveauEtudeOptions, true)) {
-    if (empty($_SESSION['form_data']['niveau_etude_autre'])) {
-        $_SESSION['form_data']['niveau_etude_autre'] = $_SESSION['form_data']['niveau_etude'];
-    }
-    $_SESSION['form_data']['niveau_etude'] = 'Autre';
+  if (empty($_SESSION['form_data']['niveau_etude_autre'])) {
+    $_SESSION['form_data']['niveau_etude_autre'] = $_SESSION['form_data']['niveau_etude'];
+  }
+  $_SESSION['form_data']['niveau_etude'] = 'Autre';
 }
 ?>
 
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -110,6 +113,7 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
   <div class="container">
@@ -222,7 +226,10 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
                   <select name="id_lieu" required>
                     <option value="">-- Choisir --</option>
                     <?php foreach ($lieux as $l): ?>
-                      <option value="<?= $l['id_lieu'] ?>" <?= selected('id_lieu', $l['id_lieu']) ?>><?= $l['nom_lieu'] ?></option>
+                      <option value="<?= $l['id_lieu'] ?>"
+                        <?= selected('id_lieu', $l['id_lieu']) ?: (empty(val('id_lieu')) && $l['id_lieu'] == 1 ? 'selected' : '') ?>>
+                        <?= htmlspecialchars($l['nom_lieu']) ?>
+                      </option>
                     <?php endforeach; ?>
                   </select>
                 </div>
@@ -352,43 +359,44 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
   </div>
 
   <script>
-  function toggleNiveauEtudeOther() {
-    const select = document.getElementById('niveau_etude_select');
-    const group = document.getElementById('niveau_etude_autre_group');
-    const input = document.getElementById('niveau_etude_autre');
-    if (!select || !group || !input) return;
+    function toggleNiveauEtudeOther() {
+      const select = document.getElementById('niveau_etude_select');
+      const group = document.getElementById('niveau_etude_autre_group');
+      const input = document.getElementById('niveau_etude_autre');
+      if (!select || !group || !input) return;
 
-    const isOther = select.value === 'Autre';
-    group.style.display = isOther ? '' : 'none';
-    input.disabled = !isOther;
-    if (!isOther) input.value = '';
-  }
-
-  function toggleBaptemeFields() {
-    const baptise = document.getElementById('baptise');
-    if (!baptise) return;
-    
-    const isBaptise = baptise.value === "1";
-    const dateBapteme = document.getElementById('date_bapteme');
-    const communion = document.getElementById('communion');
-    const paroisse = document.getElementById('paroisse_bapteme');
-
-    if (dateBapteme) dateBapteme.disabled = !isBaptise;
-    if (communion) communion.disabled = !isBaptise;
-    if (paroisse) paroisse.disabled = !isBaptise;
-
-    if (!isBaptise) {
-      if (dateBapteme) dateBapteme.value = "";
-      if (communion) communion.value = "0";
-      if (paroisse) paroisse.value = "";
+      const isOther = select.value === 'Autre';
+      group.style.display = isOther ? '' : 'none';
+      input.disabled = !isOther;
+      if (!isOther) input.value = '';
     }
-  }
 
-  window.onload = function () {
-    toggleBaptemeFields();
-    toggleNiveauEtudeOther();
-  };
+    function toggleBaptemeFields() {
+      const baptise = document.getElementById('baptise');
+      if (!baptise) return;
+
+      const isBaptise = baptise.value === "1";
+      const dateBapteme = document.getElementById('date_bapteme');
+      const communion = document.getElementById('communion');
+      const paroisse = document.getElementById('paroisse_bapteme');
+
+      if (dateBapteme) dateBapteme.disabled = !isBaptise;
+      if (communion) communion.disabled = !isBaptise;
+      if (paroisse) paroisse.disabled = !isBaptise;
+
+      if (!isBaptise) {
+        if (dateBapteme) dateBapteme.value = "";
+        if (communion) communion.value = "0";
+        if (paroisse) paroisse.value = "";
+      }
+    }
+
+    window.onload = function() {
+      toggleBaptemeFields();
+      toggleNiveauEtudeOther();
+    };
   </script>
 
 </body>
+
 </html>
