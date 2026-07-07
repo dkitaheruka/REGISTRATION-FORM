@@ -15,8 +15,66 @@ function sanitize($data) {
     return htmlspecialchars(trim($data), ENT_QUOTES, 'UTF-8');
 }
 
+function validate_date_string($value) {
+    $value = trim($value ?? '');
+    if ($value === '') {
+        return false;
+    }
+    if (!preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $value, $m)) {
+        return false;
+    }
+    $day = (int)$m[1];
+    $month = (int)$m[2];
+    $year = (int)$m[3];
+    if ($month < 1 || $month > 12 || $year < 2000 || $year > 2030) {
+        return false;
+    }
+    return checkdate($month, $day, $year);
+}
+
+function normalize_date_for_db($value) {
+    $value = trim($value ?? '');
+    if ($value === '') {
+        return '';
+    }
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1])) {
+        return "$m[1]-$m[2]-$m[3]";
+    }
+    if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $value, $m) && checkdate((int)$m[2], (int)$m[1], (int)$m[3])) {
+        return "$m[3]-$m[2]-$m[1]";
+    }
+    return '';
+}
+
+function uppercase_data($data) {
+    foreach ($data as $key => $value) {
+        if (is_array($value)) {
+            $data[$key] = uppercase_data($value);
+        } elseif ($value !== '' && !is_numeric($value)) {
+            $data[$key] = mb_strtoupper($value, 'UTF-8');
+        }
+    }
+    return $data;
+}
+
 // Les données sont maintenant dans la session
 $data = isset($_SESSION['form_data']) ? sanitize($_SESSION['form_data']) : [];
+$data = uppercase_data($data);
+
+if (!empty($data['date_naissance']) && !validate_date_string($data['date_naissance'])) {
+    $errorMessage = "Date de naissance invalide.";
+    throw new Exception($errorMessage);
+}
+if (!empty($data['date_bapteme']) && !validate_date_string($data['date_bapteme'])) {
+    $errorMessage = "Date de baptême invalide.";
+    throw new Exception($errorMessage);
+}
+if (!empty($data['date_naissance'])) {
+    $data['date_naissance'] = normalize_date_for_db($data['date_naissance']);
+}
+if (!empty($data['date_bapteme'])) {
+    $data['date_bapteme'] = normalize_date_for_db($data['date_bapteme']);
+}
 
 if (!empty($data)) {
     try {

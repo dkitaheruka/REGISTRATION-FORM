@@ -75,6 +75,25 @@ function selected($key, $value)
   return (isset($_SESSION['form_data'][$key]) && $_SESSION['form_data'][$key] == $value) ? 'selected' : '';
 }
 
+function format_date_display($value)
+{
+  $value = trim($value ?? '');
+  if ($value === '') {
+    return '';
+  }
+  if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $matches) && checkdate((int)$matches[2], (int)$matches[3], (int)$matches[1])) {
+    return htmlspecialchars($matches[3] . '/' . $matches[2] . '/' . $matches[1], ENT_QUOTES, 'UTF-8');
+  }
+  if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $value, $matches) && checkdate((int)$matches[2], (int)$matches[1], (int)$matches[3])) {
+    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+  }
+  $timestamp = strtotime($value);
+  if ($timestamp !== false) {
+    return htmlspecialchars(date('d/m/Y', $timestamp), ENT_QUOTES, 'UTF-8');
+  }
+  return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+}
+
 $niveauEtudeOptions = [
   'Aucun',
   'Primaire',
@@ -167,7 +186,11 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
                 </div>
                 <div class="form-group">
                   <label>Date de naissance</label>
-                  <input type="date" name="date_naissance" value="<?= val('date_naissance') ?>" required>
+                  <div class="input-container">
+                    <input type="text" name="date_naissance" id="date_naissance" class="date-input-field" placeholder="JJ/MM/AAAA" maxlength="10" value="<?= format_date_display($_SESSION['form_data']['date_naissance'] ?? '') ?>" required>
+                    <button type="button" class="picker-trigger-btn" data-target="date_naissance" title="Ouvrir la sélection de date">📅</button>
+                  </div>
+                  <div class="field-error" id="error-date_naissance"></div>
                 </div>
                 <div class="form-group">
                   <label>Lieu de naissance</label>
@@ -212,7 +235,11 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
                 </div>
                 <div class="form-group">
                   <label>Date de baptême</label>
-                  <input type="date" name="date_bapteme" id="date_bapteme" value="<?= val('date_bapteme') ?>" required>
+                  <div class="input-container">
+                    <input type="text" name="date_bapteme" id="date_bapteme" class="date-input-field" placeholder="JJ/MM/AAAA" maxlength="10" pattern="\d{2}/\d{2}/\d{4}" title="JJ/MM/AAAA" value="<?= format_date_display($_SESSION['form_data']['date_bapteme'] ?? '') ?>" required>
+                    <button type="button" class="picker-trigger-btn" data-target="date_bapteme" title="Ouvrir la sélection de date">📅</button>
+                  </div>
+                  <div class="field-error" id="error-date_bapteme"></div>
                 </div>
                 <div class="form-group">
                   <label>Membre communiant ?</label>
@@ -395,6 +422,277 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
       toggleBaptemeFields();
       toggleNiveauEtudeOther();
     };
+  </script>
+
+  <div class="modal-overlay" id="modalPicker">
+    <div class="picker-container">
+      <div class="picker-header">Définir la date</div>
+      <div class="picker-content">
+        <div class="picker-selection-indicator"></div>
+        <div class="picker-column-wrapper">
+          <div class="arrow-up">▲</div>
+          <div class="picker-column" id="col-jours"><ul id="list-jours"></ul></div>
+          <div class="arrow-down">▼</div>
+        </div>
+        <div class="picker-column-wrapper">
+          <div class="arrow-up">▲</div>
+          <div class="picker-column" id="col-mois"><ul id="list-mois"></ul></div>
+          <div class="arrow-down">▼</div>
+        </div>
+        <div class="picker-column-wrapper">
+          <div class="arrow-up">▲</div>
+          <div class="picker-column" id="col-annees"><ul id="list-annees"></ul></div>
+          <div class="arrow-down">▼</div>
+        </div>
+      </div>
+      <div class="picker-footer">
+        <button type="button" class="picker-btn" id="btn-annuler">Annuler</button>
+        <button type="button" class="picker-btn" id="btn-effacer">Effacer</button>
+        <button type="button" class="picker-btn" id="btn-definir">Définir</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const pickerMonths = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    const yearStart = 2000;
+    const yearEnd = 2030;
+    let activeDateInput = null;
+
+    const modal = document.getElementById('modalPicker');
+    const colJours = document.getElementById('col-jours');
+    const colMois = document.getElementById('col-mois');
+    const colAnnees = document.getElementById('col-annees');
+
+    function formatDisplayDate(dateText) {
+      const cleaned = dateText.trim();
+      const slashParts = cleaned.split('/');
+      if (slashParts.length === 3) {
+        const [j, m, a] = slashParts;
+        if (j.length === 2 && m.length === 2 && a.length === 4) {
+          return `${j}/${m}/${a}`;
+        }
+      }
+      const isoMatch = cleaned.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (isoMatch) {
+        return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+      }
+      return '';
+    }
+
+    function parseDisplayDate(dateText) {
+      const cleaned = dateText.trim();
+      const parts = cleaned.split('/');
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const year = parseInt(parts[2], 10);
+        if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+          return { day, month, year };
+        }
+      }
+      const isoMatch = cleaned.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (isoMatch) {
+        return { day: parseInt(isoMatch[3], 10), month: parseInt(isoMatch[2], 10), year: parseInt(isoMatch[1], 10) };
+      }
+      return null;
+    }
+
+    function isValidDateString(value) {
+      const match = value.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (!match) {
+        return false;
+      }
+      const day = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      const year = parseInt(match[3], 10);
+      if (month < 1 || month > 12 || year < yearStart || year > yearEnd) {
+        return false;
+      }
+      const maxDay = new Date(year, month, 0).getDate();
+      return day >= 1 && day <= maxDay;
+    }
+
+    function setDateInputError(input, message) {
+      const error = document.getElementById('error-' + input.id);
+      if (error) {
+        error.textContent = message;
+      }
+      input.classList.add('input-error');
+    }
+
+    function clearDateInputError(input) {
+      const error = document.getElementById('error-' + input.id);
+      if (error) {
+        error.textContent = '';
+      }
+      input.classList.remove('input-error');
+    }
+
+    function initPickerLists() {
+      const ulJours = document.getElementById('list-jours');
+      const ulMois = document.getElementById('list-mois');
+      const ulAnnees = document.getElementById('list-annees');
+
+      for (let i = 1; i <= 31; i++) {
+        const li = document.createElement('li');
+        li.textContent = i < 10 ? '0' + i : i;
+        ulJours.appendChild(li);
+      }
+      pickerMonths.forEach((month) => {
+        const li = document.createElement('li');
+        li.textContent = month;
+        ulMois.appendChild(li);
+      });
+      for (let year = yearStart; year <= yearEnd; year++) {
+        const li = document.createElement('li');
+        li.textContent = year;
+        ulAnnees.appendChild(li);
+      }
+    }
+
+    function updateSelection(column) {
+      const items = column.querySelectorAll('li');
+      const center = column.getBoundingClientRect().top + 70;
+      items.forEach(item => {
+        const itemCenter = item.getBoundingClientRect().top + 20;
+        if (Math.abs(itemCenter - center) < 20) {
+          item.classList.add('selected');
+        } else {
+          item.classList.remove('selected');
+        }
+      });
+    }
+
+    function scrollToIndex(column, index) {
+      setTimeout(() => {
+        column.scrollTop = index * 40;
+        updateSelection(column);
+      }, 50);
+    }
+
+    function openPicker(inputId) {
+      activeDateInput = document.getElementById(inputId);
+      if (!activeDateInput) return;
+      modal.classList.add('active');
+      const dateParts = parseDisplayDate(activeDateInput.value) || { day: 9, month: 2, year: 2012 };
+      const dayIndex = Math.max(0, Math.min(30, dateParts.day - 1));
+      const monthIndex = Math.max(0, Math.min(11, dateParts.month - 1));
+      const yearIndex = Math.max(0, Math.min(yearEnd - yearStart, dateParts.year - yearStart));
+      scrollToIndex(colJours, dayIndex);
+      scrollToIndex(colMois, monthIndex);
+      scrollToIndex(colAnnees, yearIndex);
+    }
+
+    function closePicker() {
+      modal.classList.remove('active');
+      activeDateInput = null;
+    }
+
+    function getSelectedValue(column) {
+      return column.querySelector('.selected')?.textContent;
+    }
+
+    document.querySelectorAll('.picker-trigger-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        openPicker(button.dataset.target);
+      });
+    });
+
+    document.querySelectorAll('.date-input-field').forEach(input => {
+      input.addEventListener('input', (event) => {
+        let value = event.target.value.replace(/\D/g, '');
+        if (value.length > 2 && value.length <= 4) {
+          value = value.substring(0, 2) + '/' + value.substring(2);
+        } else if (value.length > 4) {
+          value = value.substring(0, 2) + '/' + value.substring(2, 4) + '/' + value.substring(4, 8);
+        }
+        event.target.value = value;
+        event.target.setCustomValidity('');
+      });
+
+      input.addEventListener('blur', (event) => {
+        if (event.target.value.trim() === '') {
+          event.target.setCustomValidity('');
+          clearDateInputError(event.target);
+          return;
+        }
+        if (!isValidDateString(event.target.value)) {
+          const message = 'Votre date est invalide. Utilisez JJ/MM/AAAA.';
+          event.target.setCustomValidity(message);
+          event.target.reportValidity();
+          setDateInputError(event.target, message);
+        } else {
+          event.target.setCustomValidity('');
+          clearDateInputError(event.target);
+        }
+      });
+
+      input.addEventListener('invalid', (event) => {
+        event.preventDefault();
+        const message = 'Votre date est invalide. Utilisez JJ/MM/AAAA.';
+        event.target.setCustomValidity(message);
+        setDateInputError(event.target, message);
+      });
+    });
+
+    const form = document.querySelector('form');
+    if (form) {
+      form.addEventListener('submit', (event) => {
+        let valid = true;
+        document.querySelectorAll('.date-input-field').forEach(input => {
+          clearDateInputError(input);
+          if (input.required || input.value.trim() !== '') {
+            if (!isValidDateString(input.value)) {
+              const message = 'Votre date est invalide. Utilisez JJ/MM/AAAA.';
+              input.setCustomValidity(message);
+              input.reportValidity();
+              setDateInputError(input, message);
+              valid = false;
+            } else {
+              input.setCustomValidity('');
+            }
+          }
+        });
+        if (!valid) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      });
+    }
+
+    [colJours, colMois, colAnnees].forEach(column => {
+      column.addEventListener('scroll', () => updateSelection(column));
+    });
+
+    document.getElementById('btn-annuler').addEventListener('click', closePicker);
+    document.getElementById('btn-effacer').addEventListener('click', () => {
+      if (activeDateInput) {
+        activeDateInput.value = '';
+      }
+      closePicker();
+    });
+    document.getElementById('btn-definir').addEventListener('click', () => {
+      if (!activeDateInput) {
+        closePicker();
+        return;
+      }
+      const jour = getSelectedValue(colJours) || '01';
+      const moisTxt = getSelectedValue(colMois) || 'janv.';
+      const annee = getSelectedValue(colAnnees) || '2012';
+      const moisIndex = pickerMonths.indexOf(moisTxt) + 1;
+      const moisNum = moisIndex < 10 ? '0' + moisIndex : moisIndex;
+      activeDateInput.value = `${jour}/${moisNum}/${annee}`;
+      closePicker();
+    });
+
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) {
+        closePicker();
+      }
+    });
+
+    initPickerLists();
   </script>
 
 </body>
