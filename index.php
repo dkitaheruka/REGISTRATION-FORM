@@ -184,7 +184,7 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
                 </div>
                 <div class="form-group">
                   <label>N° Téléphone</label>
-                  <input type="text" name="telephone" value="<?= val('telephone') ?>" placeholder="+243 ...">
+                  <input type="number" name="telephone" value="<?= val('telephone') ?>" placeholder="+243 ...">
                 </div>
               </div>
             </div>
