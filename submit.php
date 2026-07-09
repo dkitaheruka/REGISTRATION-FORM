@@ -34,7 +34,7 @@ function validate_date_string($value) {
 
 function normalize_date_for_db($value) {
     $value = trim($value ?? '');
-    if ($value === '') {
+    if ($value === '' || $value === '00/00/0000') {
         return '';
     }
     if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1])) {
@@ -61,11 +61,18 @@ function uppercase_data($data) {
 $data = isset($_SESSION['form_data']) ? sanitize($_SESSION['form_data']) : [];
 $data = uppercase_data($data);
 
+$isBaptise = isset($data['baptise']) && (string)$data['baptise'] === '1';
+if (!$isBaptise) {
+    $data['date_bapteme'] = '';
+    $data['lieu_bapteme'] = null;
+    $data['communiant'] = 0;
+}
+
 if (!empty($data['date_naissance']) && !validate_date_string($data['date_naissance'])) {
     $errorMessage = "Date de naissance invalide.";
     throw new Exception($errorMessage);
 }
-if (!empty($data['date_bapteme']) && !validate_date_string($data['date_bapteme'])) {
+if ($isBaptise && !empty($data['date_bapteme']) && !validate_date_string($data['date_bapteme'])) {
     $errorMessage = "Date de baptême invalide.";
     throw new Exception($errorMessage);
 }

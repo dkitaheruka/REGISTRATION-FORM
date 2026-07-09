@@ -42,6 +42,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   }
 
+  if (isset($_POST['baptise']) && $_POST['baptise'] === '0') {
+    $_SESSION['form_data']['date_bapteme'] = '00/00/0000';
+    $_SESSION['form_data']['lieu_bapteme'] = '';
+    $_SESSION['form_data']['communiant'] = '0';
+  }
+
   // Redirection vers l'étape suivante ou submit.php
   if (isset($_POST['next_step'])) {
     $next = (int)$_POST['next_step'];
@@ -81,6 +87,9 @@ function format_date_display($value)
   if ($value === '') {
     return '';
   }
+  if ($value === '0000-00-00' || $value === '00/00/0000') {
+    return '00/00/0000';
+  }
   if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $matches) && checkdate((int)$matches[2], (int)$matches[3], (int)$matches[1])) {
     return htmlspecialchars($matches[3] . '/' . $matches[2] . '/' . $matches[1], ENT_QUOTES, 'UTF-8');
   }
@@ -93,6 +102,9 @@ function format_date_display($value)
   }
   return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 }
+
+$currentBaptise = isset($_SESSION['form_data']['baptise']) ? (string)$_SESSION['form_data']['baptise'] : '1';
+$baptiseYes = $currentBaptise === '1';
 
 $niveauEtudeOptions = [
   'Aucun',
@@ -207,7 +219,7 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
                 </div>
                 <div class="form-group">
                   <label>N° Téléphone</label>
-                  <input type="number" name="telephone" value="<?= val('telephone') ?>" placeholder="+243 ...">
+                  <input type="number" name="telephone" value="<?= val('telephone') ?>" placeholder="243 ...">
                 </div>
               </div>
             </div>
@@ -231,19 +243,19 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
                 </div>
                 <div class="form-group">
                   <label>Paroisse de baptême</label>
-                  <input type="text" name="lieu_bapteme" id="paroisse_bapteme" value="<?= val('lieu_bapteme') ?>" placeholder="Nom de l'église" required>
+                  <input type="text" name="lieu_bapteme" id="paroisse_bapteme" value="<?= val('lieu_bapteme') ?>" placeholder="Nom de l'église" <?= $baptiseYes ? 'required' : '' ?> >
                 </div>
                 <div class="form-group">
                   <label>Date de baptême</label>
                   <div class="input-container">
-                    <input type="text" name="date_bapteme" id="date_bapteme" class="date-input-field" placeholder="JJ/MM/AAAA" maxlength="10" pattern="\d{2}/\d{2}/\d{4}" title="JJ/MM/AAAA" value="<?= format_date_display($_SESSION['form_data']['date_bapteme'] ?? '') ?>" required>
+                    <input type="text" name="date_bapteme" id="date_bapteme" class="date-input-field" placeholder="JJ/MM/AAAA" maxlength="10" pattern="\d{2}/\d{2}/\d{4}" title="JJ/MM/AAAA" value="<?= format_date_display($_SESSION['form_data']['date_bapteme'] ?? ($currentBaptise === '0' ? '00/00/0000' : '')) ?>" <?= $baptiseYes ? 'required' : '' ?> >
                     <button type="button" class="picker-trigger-btn" data-target="date_bapteme" title="Ouvrir la sélection de date">📅</button>
                   </div>
                   <div class="field-error" id="error-date_bapteme"></div>
                 </div>
                 <div class="form-group">
                   <label>Membre communiant ?</label>
-                  <select name="communiant" id="communion" required>
+                  <select name="communiant" id="communion" <?= $baptiseYes ? 'required' : '' ?> >
                     <option value="1" <?= selected('communiant', '1') ?>>Oui</option>
                     <option value="0" <?= selected('communiant', '0') ?>>Non</option>
                   </select>
@@ -407,14 +419,34 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
       const communion = document.getElementById('communion');
       const paroisse = document.getElementById('paroisse_bapteme');
 
-      if (dateBapteme) dateBapteme.disabled = !isBaptise;
-      if (communion) communion.disabled = !isBaptise;
-      if (paroisse) paroisse.disabled = !isBaptise;
-
-      if (!isBaptise) {
-        if (dateBapteme) dateBapteme.value = "";
-        if (communion) communion.value = "0";
-        if (paroisse) paroisse.value = "";
+      if (dateBapteme) {
+        dateBapteme.disabled = !isBaptise;
+        if (!isBaptise) {
+          dateBapteme.value = "00/00/0000";
+          dateBapteme.removeAttribute('required');
+        } else {
+          if (dateBapteme.value === "00/00/0000") {
+            dateBapteme.value = "";
+          }
+          dateBapteme.setAttribute('required', 'required');
+        }
+      }
+      if (communion) {
+        communion.disabled = !isBaptise;
+        if (isBaptise) {
+          communion.setAttribute('required', 'required');
+        } else {
+          communion.value = "0";
+          communion.removeAttribute('required');
+        }
+      }
+      if (paroisse) {
+        paroisse.disabled = !isBaptise;
+        if (isBaptise) {
+          paroisse.setAttribute('required', 'required');
+        } else {
+          paroisse.value = "";
+        }
       }
     }
 
@@ -499,7 +531,11 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
     }
 
     function isValidDateString(value) {
-      const match = value.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      const trimmed = value.trim();
+      if (trimmed === '00/00/0000') {
+        return true;
+      }
+      const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
       if (!match) {
         return false;
       }
