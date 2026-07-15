@@ -487,8 +487,8 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
 
   <script>
     const pickerMonths = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-    const yearStart = 2000;
-    const yearEnd = 2030;
+    const yearStart = 1700;
+    const yearEnd = 2050;
     let activeDateInput = null;
 
     const modal = document.getElementById('modalPicker');
@@ -589,10 +589,12 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
 
     function updateSelection(column) {
       const items = column.querySelectorAll('li');
-      const center = column.getBoundingClientRect().top + 70;
+      const columnRect = column.getBoundingClientRect();
+      const center = columnRect.top + columnRect.height / 2;
       items.forEach(item => {
-        const itemCenter = item.getBoundingClientRect().top + 20;
-        if (Math.abs(itemCenter - center) < 20) {
+        const itemRect = item.getBoundingClientRect();
+        const itemCenter = itemRect.top + itemRect.height / 2;
+        if (Math.abs(itemCenter - center) < itemRect.height / 2) {
           item.classList.add('selected');
         } else {
           item.classList.remove('selected');
@@ -601,17 +603,20 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
     }
 
     function scrollToIndex(column, index) {
-      setTimeout(() => {
-        column.scrollTop = index * 40;
-        updateSelection(column);
-      }, 50);
+      const item = column.querySelector('li');
+      const itemHeight = item ? item.offsetHeight : 40;
+      const ul = column.querySelector('ul');
+      const paddingTop = ul ? parseInt(getComputedStyle(ul).paddingTop, 10) || 0 : 0;
+      const targetScroll = Math.max(0, paddingTop + index * itemHeight + itemHeight / 2 - column.clientHeight / 2);
+      column.scrollTop = targetScroll;
+      requestAnimationFrame(() => updateSelection(column));
     }
 
     function openPicker(inputId) {
       activeDateInput = document.getElementById(inputId);
       if (!activeDateInput) return;
       modal.classList.add('active');
-      const dateParts = parseDisplayDate(activeDateInput.value) || { day: 9, month: 2, year: 2012 };
+      const dateParts = parseDisplayDate(activeDateInput.value) || { day: 1, month: 1, year: yearStart };
       const dayIndex = Math.max(0, Math.min(30, dateParts.day - 1));
       const monthIndex = Math.max(0, Math.min(11, dateParts.month - 1));
       const yearIndex = Math.max(0, Math.min(yearEnd - yearStart, dateParts.year - yearStart));
@@ -633,6 +638,24 @@ if (!empty($_SESSION['form_data']['niveau_etude']) && !in_array($_SESSION['form_
       button.addEventListener('click', () => {
         openPicker(button.dataset.target);
       });
+    });
+
+    document.querySelectorAll('.picker-column-wrapper').forEach(wrapper => {
+      const column = wrapper.querySelector('.picker-column');
+      const up = wrapper.querySelector('.arrow-up');
+      const down = wrapper.querySelector('.arrow-down');
+      const stepScroll = 40;
+
+      if (up) {
+        up.addEventListener('click', () => {
+          column.scrollBy({ top: -stepScroll, behavior: 'smooth' });
+        });
+      }
+      if (down) {
+        down.addEventListener('click', () => {
+          column.scrollBy({ top: stepScroll, behavior: 'smooth' });
+        });
+      }
     });
 
     document.querySelectorAll('.date-input-field').forEach(input => {
